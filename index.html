@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10130f">
+  <title>Dustline — Endless Ride</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f3ec;
+      --muted: #9da196;
+      --panel: rgba(18, 22, 18, .86);
+      --line: rgba(239, 238, 219, .15);
+      --lime: #d7f56a;
+      --orange: #ff744d;
+      font-family: "Space Grotesk", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #10130f; color: var(--ink); }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    .grain {
+      pointer-events: none; position: fixed; inset: 0; z-index: 1; opacity: .13;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.32'/%3E%3C/svg%3E");
+      mix-blend-mode: soft-light;
+    }
+    .vignette { pointer-events:none; position:fixed; inset:0; z-index:1; background:linear-gradient(180deg,rgba(8,12,10,.4),transparent 30%,transparent 66%,rgba(8,12,10,.46)); }
+    .hud { position: fixed; z-index: 2; inset: 0; padding: 26px 30px; pointer-events: none; }
+    .topbar { display:flex; align-items:flex-start; justify-content:space-between; }
+    .top-left { display:flex; align-items:center; gap:22px; pointer-events:auto; }
+    .brand { display:flex; align-items:center; gap:11px; pointer-events:auto; }
+    .brand-mark { width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--lime); color:var(--lime); transform:rotate(-8deg); font-size:12px; font-weight:700; }
+    .brand-name { font-size:14px; letter-spacing:.19em; font-weight:700; }
+    .brand-sub { margin-top:3px; font:10px "DM Mono",monospace; color:var(--muted); letter-spacing:.1em; }
+    .top-actions { display:flex; gap:9px; pointer-events:auto; }
+    .pill {
+      display:flex; align-items:center; gap:9px; min-height:40px; padding:0 15px; border:1px solid var(--line);
+      background:rgba(15,18,14,.62); backdrop-filter:blur(12px); border-radius:3px; font:10px "DM Mono",monospace;
+      letter-spacing:.1em; text-transform:uppercase; cursor:pointer; transition:.2s ease;
+    }
+    .pill:hover { border-color:var(--lime); color:var(--lime); transform:translateY(-1px); }
+    .pill .dot { width:6px; height:6px; border-radius:50%; background:var(--lime); box-shadow:0 0 10px var(--lime); }
+    .pill.ai { color:var(--lime); border-color:rgba(215,245,106,.43); }
+    .stats { position:absolute; top:103px; left:30px; display:flex; gap:32px; }
+    .stat-label { font:9px "DM Mono",monospace; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); }
+    .stat-value { margin-top:5px; font-size:25px; line-height:1; font-weight:600; letter-spacing:-.05em; }
+    .stat-value small { font:10px "DM Mono",monospace; color:var(--muted); letter-spacing:.05em; }
+    .status-line { position:absolute; top:106px; right:31px; font:9px "DM Mono",monospace; letter-spacing:.13em; color:rgba(244,243,236,.56); text-align:right; }
+    .status-line span { color:var(--lime); }
+    .bottom { position:absolute; left:30px; right:30px; bottom:25px; display:flex; align-items:flex-end; justify-content:space-between; }
+    .route { font:10px "DM Mono",monospace; letter-spacing:.1em; text-transform:uppercase; color:rgba(244,243,236,.75); }
+    .route strong { display:block; font:600 16px "Space Grotesk",sans-serif; letter-spacing:.02em; color:var(--ink); margin-top:7px; }
+    .controls { display:flex; gap:6px; align-items:center; color:rgba(244,243,236,.64); font:9px "DM Mono",monospace; letter-spacing:.08em; }
+    .key { border:1px solid rgba(244,243,236,.25); padding:7px 9px; min-width:28px; text-align:center; color:var(--ink); border-radius:2px; }
+    .right-bottom { display:flex; flex-direction:column; align-items:flex-end; gap:9px; }
+    .progress { width:150px; height:2px; background:rgba(244,243,236,.2); }
+    .progress i { display:block; height:100%; width:35%; background:var(--lime); }
+    .boost-meta { display:flex; width:150px; justify-content:space-between; color:rgba(244,243,236,.58); font:8px "DM Mono",monospace; letter-spacing:.1em; }
+    .boost-track { width:150px; height:3px; background:rgba(244,243,236,.18); }
+    .boost-track i { display:block; height:100%; width:100%; background:#ffb85b; transition:width .12s linear; }
+    .coordinates { color:rgba(244,243,236,.56); font:9px "DM Mono",monospace; letter-spacing:.12em; }
+    .route .coordinates { display:block; margin-top:5px; font-size:8px; letter-spacing:.08em; }
+    .toast { position:absolute; left:50%; bottom:82px; transform:translate(-50%,12px); opacity:0; transition:.25s; background:var(--panel); border:1px solid var(--line); padding:10px 15px; font:10px "DM Mono",monospace; letter-spacing:.08em; pointer-events:none; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    .panel-backdrop { position:fixed; inset:0; z-index:1; background:rgba(6,9,7,.28); pointer-events:none; opacity:0; transition:opacity .2s; }
+    .panel-backdrop.open { opacity:1; pointer-events:auto; }
+    .panel {
+      position:fixed; z-index:5; top:78px; right:28px; width:min(360px,calc(100vw - 32px)); max-height:min(530px,calc(100vh - 105px));
+      display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--line); backdrop-filter:blur(22px);
+      box-shadow:0 18px 70px rgba(0,0,0,.4); opacity:0; transform:translateY(-8px); pointer-events:none; transition:.2s;
+    }
+    .panel.open { opacity:1; transform:translateY(0); pointer-events:auto; }
+    .panel-head { display:flex; align-items:center; justify-content:space-between; padding:17px 18px; border-bottom:1px solid var(--line); }
+    .panel-title { font-size:12px; font-weight:600; letter-spacing:.04em; }
+    .panel-kicker { font:9px "DM Mono",monospace; color:var(--lime); letter-spacing:.12em; text-transform:uppercase; margin-bottom:5px; }
+    .close { border:0; background:none; color:var(--muted); cursor:pointer; font-size:19px; line-height:1; padding:2px 4px; }
+    .chat-messages { display:flex; flex-direction:column; gap:12px; overflow:auto; padding:16px 18px; min-height:180px; }
+    .message { max-width:90%; padding:10px 11px; border:1px solid var(--line); font-size:12px; line-height:1.55; color:#e7e8dc; }
+    .message.bot { align-self:flex-start; background:rgba(255,255,255,.035); }
+    .message.user { align-self:flex-end; border-color:rgba(215,245,106,.3); color:var(--lime); }
+    .suggestions { display:flex; flex-wrap:wrap; gap:6px; padding:0 18px 13px; }
+    .suggestion { border:1px solid var(--line); background:transparent; color:var(--muted); padding:6px 8px; font:9px "DM Mono",monospace; cursor:pointer; }
+    .suggestion:hover { border-color:var(--lime); color:var(--lime); }
+    .chat-form { display:flex; gap:7px; border-top:1px solid var(--line); padding:12px; }
+    .chat-form input,.join-form input { width:100%; min-width:0; background:rgba(255,255,255,.04); border:1px solid var(--line); color:var(--ink); outline:none; padding:11px; font-size:12px; }
+    .chat-form input:focus,.join-form input:focus { border-color:rgba(215,245,106,.55); }
+    .send,.primary {
+      border:1px solid var(--lime); background:var(--lime); color:#12160e; font:10px "DM Mono",monospace; letter-spacing:.1em;
+      text-transform:uppercase; cursor:pointer; padding:0 13px; transition:.2s;
+    }
+    .send:hover,.primary:hover { background:#e8ff9b; }
+    .panel-note { padding:0 18px 14px; font:9px/1.5 "DM Mono",monospace; color:var(--muted); }
+    .multiplayer-panel { left:28px; right:auto; width:min(370px,calc(100vw - 32px)); }
+    .mp-content { padding:17px 18px 19px; }
+    .mp-status { color:var(--muted); font-size:12px; line-height:1.6; margin-bottom:17px; }
+    .code-card { border:1px solid rgba(215,245,106,.28); background:rgba(215,245,106,.045); padding:13px 14px; margin:13px 0; }
+    .code-label { color:var(--muted); font:9px "DM Mono",monospace; letter-spacing:.13em; text-transform:uppercase; }
+    .code-row { display:flex; align-items:center; justify-content:space-between; margin-top:7px; }
+    .room-code { color:var(--lime); font:22px "DM Mono",monospace; letter-spacing:.19em; }
+    .copy { border:1px solid var(--line); background:transparent; padding:7px 9px; color:var(--ink); font:9px "DM Mono",monospace; cursor:pointer; }
+    .mp-actions { display:flex; gap:8px; }
+    .mp-actions button { min-height:38px; flex:1; }
+    .secondary { border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer; font:10px "DM Mono",monospace; letter-spacing:.08em; text-transform:uppercase; }
+    .secondary:hover { border-color:var(--lime); }
+    .join-form { display:none; gap:7px; margin-top:11px; }
+    .join-form.visible { display:flex; }
+    .join-form input { letter-spacing:.18em; font-family:"DM Mono",monospace; }
+    .join-form button { min-width:78px; }
+    .mp-foot { margin-top:13px; font:9px/1.5 "DM Mono",monospace; color:var(--muted); }
+    .modal-wrap { position:fixed; inset:0; z-index:7; display:grid; place-items:center; background:rgba(4,7,5,.65); opacity:0; pointer-events:none; transition:.2s; padding:16px; }
+    .modal-wrap.open { opacity:1; pointer-events:auto; }
+    .modal { width:min(390px,100%); background:#151a14; border:1px solid var(--line); padding:25px; box-shadow:0 22px 90px rgba(0,0,0,.55); }
+    .modal h2 { font-size:20px; margin:0 0 8px; letter-spacing:-.03em; }
+    .modal p { color:var(--muted); font-size:12px; line-height:1.6; margin:0 0 18px; }
+    .modal .join-form { display:flex; }
+    .modal .join-form button { padding:0 12px; }
+    .modal-error { margin-top:9px; color:#ff9677; font:10px "DM Mono",monospace; }
+    .modal-x { float:right; }
+    .math-gate { position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:22px; background:rgba(11,14,11,.96); backdrop-filter:blur(18px); transition:opacity .45s ease; }
+    .math-gate.dismissed { opacity:0; pointer-events:none; }
+    .math-card { width:min(430px,100%); padding:28px; border:1px solid rgba(215,245,106,.3); background:#171b15; box-shadow:0 24px 100px rgba(0,0,0,.5); }
+    .math-heading { display:flex; align-items:center; gap:15px; margin-bottom:23px; }
+    .math-icon { display:grid; place-items:center; width:52px; height:52px; border:1px solid rgba(215,245,106,.6); color:var(--lime); background:rgba(215,245,106,.07); }
+    .math-kicker { color:var(--muted); font:9px "DM Mono",monospace; letter-spacing:.14em; }
+    .math-title { margin:5px 0 0; font-size:23px; letter-spacing:.08em; }
+    .math-display { padding:14px; margin-bottom:18px; border:1px solid var(--line); background:#0f120e; text-align:right; }
+    .math-expression { min-height:14px; color:var(--muted); font:10px "DM Mono",monospace; }
+    .math-output { margin-top:9px; color:var(--lime); font:24px "DM Mono",monospace; }
+    .math-form label { display:block; margin-bottom:7px; color:var(--muted); font:9px "DM Mono",monospace; letter-spacing:.12em; }
+    .math-entry { display:flex; gap:8px; }
+    .math-entry input { flex:1; min-width:0; padding:12px; border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--ink); font:14px "DM Mono",monospace; outline:none; }
+    .math-entry input:focus { border-color:rgba(215,245,106,.6); }
+    .math-entry button { min-width:80px; border:1px solid var(--lime); background:var(--lime); color:#12160e; font:10px "DM Mono",monospace; letter-spacing:.1em; cursor:pointer; }
+    .math-feedback { min-height:15px; margin:11px 0 0; color:var(--muted); font:9px "DM Mono",monospace; line-height:1.55; }
+    .math-feedback.error { color:#ff9677; }
+    .mobile-controls { display:none; }
+    @media (max-width:640px) {
+      .hud { padding:18px 16px; }
+      .brand-mark { width:28px;height:28px; }
+      .brand-name { font-size:12px; }
+      .brand-sub { font-size:8px; }
+      .top-left { gap:6px; }
+      #multiToggle { gap:5px; padding:0 7px; font-size:7px; }
+      .top-actions { gap:6px; }
+      .pill { min-height:35px; padding:0 9px; font-size:8px; }
+      .stats { top:82px; left:16px; gap:19px; }
+      .stat-value { font-size:21px; }
+      .status-line { top:155px; right:16px; font-size:8px; }
+      .bottom { left:16px; right:16px; bottom:19px; }
+      .controls { display:none; }
+      .route { font-size:8px; }
+      .route strong { font-size:13px; }
+      .right-bottom { gap:7px; }
+      .progress,.boost-track,.boost-meta { width:100px; }
+      .coordinates { font-size:8px; }
+      .route .coordinates { font-size:7px; }
+      .panel { top:65px; right:12px; max-height:calc(100vh - 80px); }
+      .multiplayer-panel { left:12px; right:auto; }
+      .mobile-controls { display:flex; position:fixed; z-index:3; bottom:84px; left:50%; transform:translateX(-50%); gap:7px; pointer-events:auto; }
+      .mobile-controls button { width:44px; height:46px; border:1px solid rgba(244,243,236,.28); background:rgba(12,16,12,.58); color:var(--ink); font:10px "DM Mono",monospace; backdrop-filter:blur(7px); touch-action:none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" tabindex="0" aria-label="Three-dimensional motorcycle racing game"></canvas>
+  <div class="grain"></div><div class="vignette"></div>
+  <main class="hud">
+    <header class="topbar">
+      <div class="top-left">
+        <div class="brand"><div class="brand-mark">D</div><div><div class="brand-name">DUSTLINE</div><div class="brand-sub">ENDLESS RIDE / 01</div></div></div>
+        <button class="pill" id="multiToggle"><span class="dot"></span> Multiplayer</button>
+      </div>
+      <div class="top-actions"><button class="pill ai" id="aiToggle">IA <span aria-hidden="true">✳</span></button></div>
+    </header>
+    <section class="stats" aria-live="polite">
+      <div><div class="stat-label">Speed</div><div class="stat-value"><span id="speed">000</span> <small>KM/H</small></div></div>
+      <div><div class="stat-label">Distance</div><div class="stat-value"><span id="distance">0.0</span> <small>KM</small></div></div>
+      <div><div class="stat-label">Best</div><div class="stat-value"><span id="best">0.0</span> <small>KM</small></div></div>
+    </section>
+    <div class="status-line"><span>●</span> <span id="rideMode">FREE ROAM</span> &nbsp; / &nbsp; TERRAIN: PROCEDURAL</div>
+    <footer class="bottom">
+      <div class="route">Current stretch<strong id="region">The ochre flats</strong><span class="coordinates" id="roamPosition">ROAM X +000 M · HDG +00°</span></div>
+      <div class="controls"><span class="key">A</span><span class="key">D</span> ROAM <span class="key">W</span> GO <span class="key">S</span> BRAKE <span class="key">E</span> WHEELIE <span class="key">SHIFT</span> NITRO</div>
+      <div class="right-bottom">
+        <div class="boost-meta"><span>NITRO / SHIFT</span><span id="boostValue">100%</span></div>
+        <div class="boost-track"><i id="boostBar"></i></div>
+        <div class="coordinates" id="stuntScore">STUNT SCORE 000000</div>
+        <div class="progress"><i id="progressBar"></i></div>
+        <div class="coordinates" id="coords">SECTOR 01 · 0000</div>
+      </div>
+    </footer>
+    <div class="toast" id="toast" role="status"></div>
+  </main>
+  <div class="mobile-controls">
+    <button id="steerLeft" aria-label="Roam left">←</button>
+    <button id="throttleMobile" aria-label="Accelerate">GO</button>
+    <button id="brakeMobile" aria-label="Brake">STOP</button>
+    <button id="wheelieMobile" aria-label="Wheelie">E</button>
+    <button id="boostMobile" aria-label="Nitro boost">N₂O</button>
+    <button id="steerRight" aria-label="Roam right">→</button>
+  </div>
+  <div class="panel-backdrop" id="panelBackdrop"></div>
+  <section class="panel" id="aiPanel" aria-label="IA riding assistant">
+    <div class="panel-head"><div><div class="panel-kicker">Trackside assistant</div><div class="panel-title">IA · your ride companion</div></div><button class="close" data-close aria-label="Close">×</button></div>
+    <div class="chat-messages" id="chatMessages"><div class="message bot">Hey rider. I can help with controls, your pace, or what’s ahead. Ask me anything about the ride.</div></div>
+    <div class="suggestions"><button class="suggestion">How am I doing?</button><button class="suggestion">How do I steer?</button><button class="suggestion">What’s ahead?</button></div>
+    <form class="chat-form" id="chatForm"><input id="chatInput" autocomplete="off" placeholder="Ask your ride companion…" aria-label="Message"><button class="send" type="submit">Send</button></form>
+    <div class="panel-note">Game-aware local helper — not a generative AI model.</div>
+  </section>
+  <section class="panel multiplayer-panel" id="multiPanel" aria-label="Multiplayer lobby">
+    <div class="panel-head"><div><div class="panel-kicker">Ride together</div><div class="panel-title">Multiplayer lobby</div></div><button class="close" data-close aria-label="Close">×</button></div>
+    <div class="mp-content">
+      <div class="mp-status" id="mpStatus">Create a private room and share its 10-digit code, or join a friend’s room.</div>
+      <div class="code-card" id="codeCard" hidden><div class="code-label">Your room code</div><div class="code-row"><strong class="room-code" id="roomCode">0000000000</strong><button class="copy" id="copyCode">COPY</button></div></div>
+      <div class="mp-actions"><button class="primary" id="hostBtn">Create room</button><button class="secondary" id="showJoinBtn">Join a friend</button></div>
+      <div class="mp-foot" id="mpFoot">Peer-to-peer connection. Both riders need an internet connection.</div>
+    </div>
+  </section>
+  <section class="modal-wrap" id="joinModal" aria-label="Join multiplayer room">
+    <div class="modal"><button class="close modal-x" data-close aria-label="Close">×</button><div class="panel-kicker">Join a ride</div><h2>Enter room code</h2><p>Ask your friend for their 10-digit room code to join their ride.</p><form class="join-form" id="modalJoinForm"><input id="modalJoinInput" inputmode="numeric" maxlength="10" placeholder="0000000000" aria-label="10 digit room code"><button class="primary" type="submit">Connect</button></form><div class="modal-error" id="joinError" hidden>Enter all 10 digits of the room code.</div></div>
+  </section>
+  <section class="math-gate" id="mathGate" aria-label="Math Desmos game entry">
+    <div class="math-card">
+      <div class="math-heading">
+        <div class="math-icon" aria-hidden="true">
+          <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="2.5" width="16" height="19" rx="2"></rect>
+            <path d="M8 6h8v4H8zM8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"></path>
+          </svg>
+        </div>
+        <div><div class="math-kicker">RIDE ACCESS TERMINAL</div><h1 class="math-title">MATH DESMOS</h1></div>
+      </div>
+      <div class="math-display" aria-live="polite">
+        <div class="math-expression" id="calcExpression">CALCULATOR READY</div>
+        <div class="math-output" id="calcOutput">—</div>
+      </div>
+      <form class="math-form" id="mathForm">
+        <label for="mathInput">ENTER THE START EXPRESSION</label>
+        <div class="math-entry"><input id="mathInput" autocomplete="off" spellcheck="false" placeholder="100x500" autofocus><button type="submit">ENTER</button></div>
+        <p class="math-feedback" id="mathFeedback">Solve 100x500 to spawn into the ride.</p>
+      </form>
+    </div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js"}}
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+
+    const canvas = document.querySelector("#game");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#b5a986");
+    scene.fog = new THREE.FogExp2("#b5a986", 0.0085);
+    const camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 500);
+    camera.position.set(0, 4.7, 9.5);
+    const cameraTarget = new THREE.Vector3(0, 1.25, -9);
+
+    scene.add(new THREE.HemisphereLight("#e4d8ae", "#383529", 2.15));
+    const sun = new THREE.DirectionalLight("#fff0cf", 3.1);
+    sun.position.set(-18, 28, 12);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.left = -22; sun.shadow.camera.right = 22;
+    sun.shadow.camera.top = 26; sun.shadow.camera.bottom = -24;
+    scene.add(sun);
+
+    const mat = (color, roughness = .8, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    const roadMat = mat("#343631", .94);
+    const shoulderMat = mat("#8b7954");
+    const sandMat = mat("#b29b6c");
+    const darkRubber = mat("#171a18", .78);
+    const metal = mat("#a6aaa2", .35, .72);
+    const bikeRed = mat("#d64f31", .4, .18);
+    const black = mat("#242827", .46, .18);
+    const glass = new THREE.MeshStandardMaterial({ color: "#b2ccc7", roughness: .12, metalness: .5, transparent: true, opacity: .75 });
+    const lime = mat("#d7f56a", .35, .12);
+    const white = mat("#f0eee3");
+
+    const world = new THREE.Group();
+    scene.add(world);
+    const player = new THREE.Group();
+    scene.add(player);
+    let heading = 0, speed = 0, traveled = 0, roadProgress = 0, nitro = 100, stuntPoints = 0, currentPeer = null, peer = null, gameStarted = false;
+    let lastTime = performance.now(), lastNetworkSend = 0, remoteMarker = null;
+    const keys = new Set();
+    const clock = new THREE.Clock();
+
+    function box(parent, size, material, pos, rot) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
+      mesh.position.set(...pos);
+      if (rot) mesh.rotation.set(...rot);
+      mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh;
+    }
+    function cylinder(parent, radiusTop, radiusBottom, height, material, pos, rot = [0, 0, 0], segments = 12) {
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, segments), material);
+      mesh.position.set(...pos); mesh.rotation.set(...rot); mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh;
+    }
+    function makeBike(parent, colorMaterial) {
+      const bike = new THREE.Group();
+      bike.position.z = .92;
+      parent.add(bike);
+      const frame = new THREE.Group();
+      frame.position.z = -.92;
+      bike.add(frame);
+      const wheelMat = darkRubber;
+      const wheels = [];
+      for (const z of [-1.05, .92]) {
+        const wheel = new THREE.Group();
+        wheel.position.set(0, .55, z);
+        frame.add(wheel);
+        wheels.push(wheel);
+        const tire = new THREE.Mesh(new THREE.TorusGeometry(.43, .12, 16, 36), wheelMat);
+        tire.rotation.y = Math.PI / 2;
+        tire.castShadow = true;
+        wheel.add(tire);
+        for (const side of [-1, 1]) {
+          const sidewall = new THREE.Mesh(new THREE.TorusGeometry(.43, .012, 8, 36), mat("#343833", .8));
+          sidewall.rotation.y = Math.PI / 2;
+          sidewall.position.x = side * .105;
+          wheel.add(sidewall);
+        }
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(.30, .025, 8, 24), metal);
+        rim.rotation.y = Math.PI / 2;
+        wheel.add(rim);
+        cylinder(wheel, .12, .12, .17, metal, [0, 0, 0], [0, 0, Math.PI / 2], 16);
+        cylinder(wheel, .20, .20, .018, metal, [.095, 0, 0], [0, 0, Math.PI / 2], 24);
+        for (let i = 0; i < 8; i++) {
+          const angle = i * Math.PI / 4;
+          cylinder(wheel, .009, .009, .31, metal, [0, Math.cos(angle) * .16, Math.sin(angle) * .16], [angle, 0, 0], 5);
+        }
+        for (let i = 0; i < 24; i++) {
+          const angle = i * Math.PI / 12;
+          box(wheel, [.23, .075, .07], wheelMat, [0, Math.cos(angle) * .515, Math.sin(angle) * .515], [angle, 0, 0]);
+        }
+      }
+      cylinder(frame, .07, .07, 1.1, metal, [0, .96, -.43], [Math.PI / 4, 0, 0], 10);
+      cylinder(frame, .07, .07, .9, metal, [0, .99, .44], [-Math.PI / 5, 0, 0], 10);
+      box(frame, [.26, .24, .67], black, [0, 1.16, -.08], [-.08, 0, 0]);
+      box(frame, [.62, .18, .62], colorMaterial, [0, 1.30, -.54], [-.12, 0, 0]);
+      box(frame, [.43, .13, .72], black, [0, 1.34, .27]);
+      const tank = new THREE.Mesh(new THREE.SphereGeometry(.38, 20, 12), colorMaterial);
+      tank.scale.set(.73, .62, 1.02); tank.position.set(0, 1.50, -.36); tank.castShadow = true; frame.add(tank);
+      const motor = new THREE.Mesh(new THREE.CylinderGeometry(.28, .31, .45, 12), metal);
+      motor.rotation.z = Math.PI / 2; motor.position.set(0, .99, .12); motor.castShadow = true; frame.add(motor);
+      box(frame, [.75, .075, .12], black, [0, 1.66, -.97], [0, 0, 0]);
+      cylinder(frame, .025, .025, .48, metal, [-.23, 1.47, -.94], [0, 0, -.2], 8);
+      cylinder(frame, .025, .025, .48, metal, [.23, 1.47, -.94], [0, 0, .2], 8);
+      const headlight = new THREE.Mesh(new THREE.SphereGeometry(.15, 12, 8), mat("#fff3c8", .25, .1));
+      headlight.scale.set(1, .72, .45); headlight.position.set(0, 1.42, -1.02); frame.add(headlight);
+      box(frame, [.4, .14, .13], black, [0, 1.76, .25], [-.2, 0, 0]);
+      cylinder(frame, .045, .045, .23, metal, [.37, 1.16, .06], [0, 0, Math.PI / 2], 8);
+      cylinder(frame, .045, .045, .23, metal, [-.37, 1.16, .06], [0, 0, Math.PI / 2], 8);
+      const rider = new THREE.Group(); frame.add(rider);
+      const jacket = mat("#37433a", .8);
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.22, .47, 5, 8), jacket);
+      torso.rotation.x = -.35; torso.rotation.z = -.16; torso.position.set(0, 1.91, .08); torso.castShadow = true; rider.add(torso);
+      const helmet = new THREE.Mesh(new THREE.SphereGeometry(.23, 16, 12), mat("#d5ddd0", .33, .08));
+      helmet.scale.set(1, 1.05, 1.12); helmet.position.set(0, 2.25, -.25); helmet.castShadow = true; rider.add(helmet);
+      const visor = new THREE.Mesh(new THREE.SphereGeometry(.155, 12, 8), mat("#283331", .2, .45));
+      visor.scale.set(1.05, .68, .65); visor.position.set(0, 2.27, -.43); rider.add(visor);
+      for (const side of [-1, 1]) {
+        const arm = cylinder(rider, .085, .075, .62, jacket, [side * .23, 1.84, -.36], [Math.PI / 2.7, 0, side * .25], 8);
+        arm.castShadow = true;
+        const leg = cylinder(rider, .11, .09, .66, black, [side * .2, 1.30, .12], [-.15, 0, side * .22], 8);
+        leg.castShadow = true;
+        box(rider, [.17, .12, .31], darkRubber, [side * .23, .98, -.02], [0, 0, side * .08]);
+      }
+      bike.userData.wheels = wheels;
+      return bike;
+    }
+    const bike = makeBike(player, bikeRed);
+    player.position.z = 0;
+
+    const regions = [
+      { name:"The ochre flats", sky:"#b5a986", sand:"#b29b6c", scrub:"#677052", rock:"#867452" },
+      { name:"Cinder valley", sky:"#a89d83", sand:"#897b66", scrub:"#555849", rock:"#686153" },
+      { name:"Sage country", sky:"#b3b39a", sand:"#98956e", scrub:"#667456", rock:"#7c785b" },
+      { name:"Redstone pass", sky:"#c19a7b", sand:"#a77c59", scrub:"#6a5945", rock:"#80543d" }
+    ];
+    let regionIndex = 0;
+    function seeded(seed) {
+      let n = seed >>> 0;
+      return () => { n = (n * 1664525 + 1013904223) >>> 0; return n / 4294967296; };
+    }
+    function makeRock(parent, rng, x, z, scale, material) {
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), material);
+      rock.position.set(x, .12 * scale, z);
+      rock.scale.set(scale * (0.8 + rng() * .5), scale * (.4 + rng() * .5), scale * (.7 + rng() * .6));
+      rock.rotation.set(rng(), rng() * 6, rng());
+      rock.castShadow = true; rock.receiveShadow = true; parent.add(rock);
+    }
+    function makeTree(parent, rng, x, z, region) {
+      const g = new THREE.Group(); g.position.set(x, 0, z); parent.add(g);
+      const h = 2.1 + rng() * 2.5;
+      cylinder(g, .09, .19, h, mat("#65523b"), [0, h / 2, 0], [0, 0, 0], 6);
+      const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 1), mat(region.scrub));
+      crown.position.y = h + .42; crown.scale.set(.8 + rng() * .4, .8 + rng() * .7, .8 + rng() * .4);
+      crown.castShadow = true; g.add(crown);
+      const crown2 = new THREE.Mesh(new THREE.DodecahedronGeometry(.65, 0), mat(region.scrub));
+      crown2.position.set(.4, h + .8, .15); crown2.castShadow = true; g.add(crown2);
+    }
+    function makeCactus(parent, rng, x, z, region) {
+      const g = new THREE.Group(); g.position.set(x, 0, z); parent.add(g);
+      const green = mat(region.scrub);
+      cylinder(g, .17, .22, 1.9 + rng() * 1.4, green, [0, 1.15, 0], [0, 0, 0], 8);
+      cylinder(g, .10, .12, .85, green, [.35, 1.45, 0], [0, 0, Math.PI / 2], 8);
+      cylinder(g, .10, .12, .58, green, [.72, 1.72, 0], [0, 0, 0], 8);
+      cylinder(g, .09, .11, .63, green, [-.32, .94, 0], [0, 0, -Math.PI / 2], 8);
+      cylinder(g, .09, .11, .42, green, [-.63, 1.13, 0], [0, 0, 0], 8);
+    }
+    const segmentLength = 28, segments = [];
+    function roadCenter(distance) { return Math.sin(distance * .00048) * 5 + Math.sin(distance * .00113 + 1.6) * 2.1; }
+    function buildSegment(index, z, distance) {
+      const group = new THREE.Group();
+      group.position.z = z;
+      const region = regions[Math.floor(distance / 1750) % regions.length];
+      const rng = seeded(Math.floor(distance / segmentLength) + 171);
+      const center = roadCenter(distance);
+      const ground = new THREE.Mesh(new THREE.PlaneGeometry(360, segmentLength), sandMat);
+      ground.rotation.x = -Math.PI / 2; ground.position.set(center, -.07, -segmentLength / 2);
+      ground.receiveShadow = true; group.add(ground);
+      const road = new THREE.Mesh(new THREE.PlaneGeometry(10.5, segmentLength), roadMat);
+      road.rotation.x = -Math.PI / 2; road.position.set(center, 0, -segmentLength / 2); road.receiveShadow = true; group.add(road);
+      for (const side of [-1, 1]) {
+        const shoulder = new THREE.Mesh(new THREE.PlaneGeometry(1.3, segmentLength), shoulderMat);
+        shoulder.rotation.x = -Math.PI / 2; shoulder.position.set(center + side * 5.9, -.005, -segmentLength / 2); group.add(shoulder);
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(.11, .018, segmentLength), mat("#d2c7a2"));
+        edge.position.set(center + side * 5.06, .015, -segmentLength / 2); group.add(edge);
+      }
+      for (const side of [-1, 1]) {
+        const line = new THREE.Mesh(new THREE.BoxGeometry(.065, .018, segmentLength), mat("#aaa99a"));
+        line.position.set(center + side * 1.75, .016, -segmentLength / 2); group.add(line);
+      }
+      for (let i = 0; i < 14; i++) {
+        const zItem = -rng() * segmentLength;
+        const side = rng() < .5 ? -1 : 1;
+        const x = center + side * (8 + rng() * 85);
+        if (rng() < .48) makeRock(group, rng, x, zItem, .45 + rng() * 1.3, mat(region.rock));
+        if (rng() < .55) {
+          if (region.name === "Sage country") makeTree(group, rng, x + side * (2 + rng() * 5), zItem - 2, region);
+          else makeCactus(group, rng, x + side * (2 + rng() * 5), zItem - 2, region);
+        }
+        if (rng() < .12) {
+          const sign = box(group, [.9, .75, .08], mat("#b38a50"), [center + side * 7.3, 1.3, zItem], [0, side * -.08, 0]);
+          cylinder(group, .05, .05, 1.25, metal, [center + side * 7.3, .65, zItem], [0, 0, 0], 6);
+          sign.castShadow = true;
+        }
+      }
+      return { group, distance };
+    }
+    for (let i = 0; i < 24; i++) {
+      const seg = buildSegment(i, segmentLength - i * segmentLength, i * segmentLength);
+      world.add(seg.group); segments.push(seg);
+    }
+
+    const remoteState = { x: 0, heading: 0, wheelie: 0, lean: 0, yaw: 0, speed: 0, distance: 0, nitro: 100 };
+    function newRemoteMarker() {
+      if (remoteMarker) scene.remove(remoteMarker);
+      remoteMarker = makeBike(new THREE.Group(), mat("#d7f56a", .35, .15));
+      scene.add(remoteMarker);
+      remoteMarker.scale.setScalar(.9);
+      remoteMarker.position.set(0, 0, -7);
+      remoteMarker.visible = false;
+    }
+    function showToast(message) {
+      const toast = document.querySelector("#toast");
+      toast.textContent = message; toast.classList.add("show");
+      clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+    function getLocalSnapshot() {
+      return {
+        x: player.position.x,
+        heading,
+        wheelie: bike.rotation.x,
+        lean: player.rotation.z,
+        yaw: bike.rotation.y,
+        speed,
+        distance: traveled,
+        nitro,
+        roadProgress
+      };
+    }
+    function updateNetwork(dt) {
+      if (currentPeer && currentPeer.open && performance.now() - lastNetworkSend > 80) {
+        currentPeer.send(getLocalSnapshot());
+        lastNetworkSend = performance.now();
+      }
+      if (remoteMarker) {
+        remoteMarker.position.x = THREE.MathUtils.damp(remoteMarker.position.x, remoteState.x, 5.4, dt);
+        remoteMarker.rotation.x = THREE.MathUtils.damp(remoteMarker.rotation.x, remoteState.wheelie, 5, dt);
+        remoteMarker.rotation.y = THREE.MathUtils.damp(remoteMarker.rotation.y, remoteState.yaw, 5, dt);
+        remoteMarker.rotation.z = THREE.MathUtils.damp(remoteMarker.rotation.z, remoteState.lean, 5, dt);
+        remoteMarker.visible = Boolean(currentPeer && currentPeer.open);
+      }
+    }
+    function update(dt) {
+      const accel = keys.has("w") || keys.has("arrowup");
+      const braking = keys.has("s") || keys.has("arrowdown");
+      const left = keys.has("a") || keys.has("arrowleft");
+      const right = keys.has("d") || keys.has("arrowright");
+      const steerInput = (right ? 1 : 0) - (left ? 1 : 0);
+      const boostActive = keys.has("shift") && nitro > 0 && speed > 0;
+      const wheelieActive = keys.has("e") && speed >= 18;
+      if (braking) {
+        speed -= (24 + speed * .1) * dt;
+      } else if (accel) {
+        const engineAcceleration = 12 * 3.6 * Math.max(0, 1 - speed / 205);
+        const boostAcceleration = boostActive ? 3.4 * 3.6 * Math.max(0, 1 - speed / 255) : 0;
+        speed += (engineAcceleration + boostAcceleration) * dt;
+        if (!boostActive && speed > 205) speed -= (.8 + speed * .035) * dt;
+      } else if (boostActive) {
+        speed += 3.4 * 3.6 * Math.max(0, 1 - speed / 255) * dt;
+      } else {
+        speed -= (.8 + speed * .035) * dt;
+      }
+      if (boostActive) {
+        nitro = Math.max(0, nitro - 30 * dt);
+      } else {
+        nitro = Math.min(100, nitro + 7 * dt);
+      }
+      speed = THREE.MathUtils.clamp(speed, 0, 255);
+      heading -= steerInput * (.35 + speed * .006) * dt;
+      heading = THREE.MathUtils.clamp(heading, -1.05, 1.05);
+      if (!steerInput) heading = THREE.MathUtils.damp(heading, 0, .7, dt);
+      const meters = speed / 3.6 * dt;
+      traveled += meters;
+      player.position.x = THREE.MathUtils.clamp(player.position.x - Math.sin(heading) * meters, -110, 110);
+      player.rotation.z = THREE.MathUtils.damp(player.rotation.z, -steerInput * .17, 5, dt);
+      bike.rotation.x = THREE.MathUtils.damp(bike.rotation.x, wheelieActive ? .48 : 0, 5, dt);
+      bike.rotation.y = heading;
+      for (const wheel of bike.userData.wheels) wheel.rotation.x -= meters / .55;
+      if (wheelieActive) stuntPoints += meters * 24;
+      const scroll = meters * Math.cos(heading);
+      roadProgress += scroll;
+      for (const seg of segments) {
+        seg.group.position.z += scroll;
+        if (seg.group.position.z > segmentLength * 2) {
+          seg.group.position.z -= segments.length * segmentLength;
+          const nextDistance = roadProgress + (segments.length - 1) * segmentLength;
+          const updated = buildSegment(0, 0, nextDistance);
+          world.remove(seg.group); world.add(updated.group);
+          seg.group = updated.group; seg.distance = nextDistance;
+        }
+      }
+      const followDistance = 9.5 + speed * .008;
+      const lookAhead = 10 + speed * .025;
+      const followSharpness = 4.5 + speed * .025;
+      const sinHeading = Math.sin(heading), cosHeading = Math.cos(heading);
+      camera.position.x = THREE.MathUtils.damp(camera.position.x, player.position.x + sinHeading * followDistance, followSharpness, dt);
+      camera.position.y = THREE.MathUtils.damp(camera.position.y, 4.7 + speed * .003 + bike.rotation.x * .5, followSharpness, dt);
+      camera.position.z = THREE.MathUtils.damp(camera.position.z, cosHeading * followDistance, followSharpness, dt);
+      cameraTarget.x = THREE.MathUtils.damp(cameraTarget.x, player.position.x - sinHeading * lookAhead, followSharpness * 1.4, dt);
+      cameraTarget.y = THREE.MathUtils.damp(cameraTarget.y, 1.25 + bike.rotation.x * .25, followSharpness * 1.4, dt);
+      cameraTarget.z = THREE.MathUtils.damp(cameraTarget.z, -cosHeading * lookAhead, followSharpness * 1.4, dt);
+      camera.lookAt(cameraTarget);
+      if (remoteMarker && currentPeer) {
+        remoteMarker.visible = true;
+      } else if (remoteMarker) remoteMarker.visible = false;
+      updateNetwork(dt);
+      const km = traveled / 1000;
+      document.querySelector("#speed").textContent = String(Math.round(speed)).padStart(3, "0");
+      document.querySelector("#distance").textContent = km.toFixed(1);
+      document.querySelector("#best").textContent = Math.max(Number(localStorage.getItem("dustline-best") || 0), km).toFixed(1);
+      document.querySelector("#boostValue").textContent = Math.round(nitro) + "%";
+      document.querySelector("#boostBar").style.width = nitro + "%";
+      document.querySelector("#stuntScore").textContent = "STUNT SCORE " + String(Math.floor(stuntPoints)).padStart(6, "0");
+      document.querySelector("#rideMode").textContent = wheelieActive ? "WHEELIE" : "FREE ROAM";
+      if (km > Number(localStorage.getItem("dustline-best") || 0)) localStorage.setItem("dustline-best", km.toFixed(1));
+      const region = ((Math.floor(roadProgress / 1750) % regions.length) + regions.length) % regions.length;
+      if (region !== regionIndex) {
+        regionIndex = region;
+        scene.background.set(regions[region].sky); scene.fog.color.set(regions[region].sky);
+        showToast("Entering " + regions[region].name);
+      }
+      document.querySelector("#region").textContent = regions[region].name;
+      const degrees = Math.round(heading * 180 / Math.PI);
+      document.querySelector("#roamPosition").textContent = "ROAM X " + (player.position.x < 0 ? "−" : "+") + String(Math.round(Math.abs(player.position.x))).padStart(3, "0") + " M · HDG " + (degrees < 0 ? "−" : "+") + String(Math.abs(degrees)).padStart(2, "0") + "°";
+      document.querySelector("#coords").textContent = "SECTOR " + String(region + 1).padStart(2, "0") + " · " + String(Math.floor(roadProgress)).padStart(4, "0");
+      document.querySelector("#progressBar").style.width = (15 + (roadProgress % 1750) / 1750 * 85) + "%";
+    }
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.max(0, Math.min((now - lastTime) / 1000, .04)); lastTime = now;
+      if (gameStarted) update(dt);
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+    });
+
+    function setHold(button, setter) {
+      button.addEventListener("pointerdown", e => { e.preventDefault(); setter(true); button.setPointerCapture(e.pointerId); });
+      for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) button.addEventListener(event, () => setter(false));
+    }
+    setHold(document.querySelector("#steerLeft"), v => v ? keys.add("a") : keys.delete("a"));
+    setHold(document.querySelector("#steerRight"), v => v ? keys.add("d") : keys.delete("d"));
+    setHold(document.querySelector("#throttleMobile"), v => v ? keys.add("w") : keys.delete("w"));
+    setHold(document.querySelector("#brakeMobile"), v => v ? keys.add("s") : keys.delete("s"));
+    setHold(document.querySelector("#wheelieMobile"), v => v ? keys.add("e") : keys.delete("e"));
+    setHold(document.querySelector("#boostMobile"), v => v ? keys.add("shift") : keys.delete("shift"));
+    window.addEventListener("keydown", e => {
+      if (e.target instanceof HTMLElement && (e.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName))) return;
+      const key = e.key.toLowerCase();
+      if (["arrowup","arrowdown","arrowleft","arrowright"," "].includes(key)) e.preventDefault();
+      keys.add(key);
+    });
+    window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
+    window.addEventListener("blur", () => keys.clear());
+
+    function calculateExpression(expression) {
+      const source = expression.replace(/\s+/g, "").replace(/[xX×]/g, "*");
+      if (!source || !/^[\d.+\-*/()]+$/.test(source)) return null;
+      let index = 0;
+      function parseFactor() {
+        if (source[index] === "+") { index++; return parseFactor(); }
+        if (source[index] === "-") { index++; return -parseFactor(); }
+        if (source[index] === "(") {
+          index++;
+          const value = parseSum();
+          if (source[index] !== ")") throw new Error("Missing closing parenthesis.");
+          index++;
+          return value;
+        }
+        const number = source.slice(index).match(/^(?:\d+(?:\.\d*)?|\.\d+)/);
+        if (!number) throw new Error("Enter a valid math expression.");
+        index += number[0].length;
+        return Number(number[0]);
+      }
+      function parseProduct() {
+        let value = parseFactor();
+        while (source[index] === "*" || source[index] === "/") {
+          const operator = source[index++];
+          const right = parseFactor();
+          value = operator === "*" ? value * right : value / right;
+        }
+        return value;
+      }
+      function parseSum() {
+        let value = parseProduct();
+        while (source[index] === "+" || source[index] === "-") {
+          const operator = source[index++];
+          const right = parseProduct();
+          value = operator === "+" ? value + right : value - right;
+        }
+        return value;
+      }
+      try {
+        const result = parseSum();
+        return index === source.length && Number.isFinite(result) ? result : null;
+      } catch {
+        return null;
+      }
+    }
+    const mathGate = document.querySelector("#mathGate");
+    const mathInput = document.querySelector("#mathInput");
+    document.querySelector("#mathForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const expression = mathInput.value.trim();
+      const result = calculateExpression(expression);
+      const feedback = document.querySelector("#mathFeedback");
+      const normalized = expression.toLowerCase().replace(/\s+/g, "");
+      document.querySelector("#calcExpression").textContent = expression ? expression.toUpperCase() : "CALCULATOR READY";
+      if (result === null) {
+        document.querySelector("#calcOutput").textContent = "ERROR";
+        feedback.textContent = "Enter a valid arithmetic expression.";
+        feedback.classList.add("error");
+        return;
+      }
+      document.querySelector("#calcOutput").textContent = Number.isInteger(result) ? result.toLocaleString("en-US") : result.toFixed(3);
+      if (normalized !== "100x500") {
+        feedback.textContent = "Calculated. Enter 100x500 to spawn into the ride.";
+        feedback.classList.remove("error");
+        return;
+      }
+      feedback.textContent = "Access granted. Have a good ride.";
+      feedback.classList.remove("error");
+      gameStarted = true;
+      document.activeElement.blur();
+      canvas.focus();
+      mathGate.classList.add("dismissed");
+      setTimeout(() => { mathGate.hidden = true; }, 500);
+    });
+
+    const aiPanel = document.querySelector("#aiPanel"), multiPanel = document.querySelector("#multiPanel");
+    const backdrop = document.querySelector("#panelBackdrop");
+    function closePanels() {
+      aiPanel.classList.remove("open"); multiPanel.classList.remove("open");
+      backdrop.classList.remove("open");
+    }
+    function openPanel(panel) {
+      const other = panel === aiPanel ? multiPanel : aiPanel;
+      other.classList.remove("open"); panel.classList.toggle("open");
+      backdrop.classList.toggle("open", panel.classList.contains("open"));
+    }
+    document.querySelector("#aiToggle").addEventListener("click", () => openPanel(aiPanel));
+    document.querySelector("#multiToggle").addEventListener("click", () => openPanel(multiPanel));
+    backdrop.addEventListener("click", closePanels);
+    document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closePanels));
+    const joinModal = document.querySelector("#joinModal");
+    joinModal.querySelector("[data-close]").addEventListener("click", () => joinModal.classList.remove("open"));
+    joinModal.addEventListener("click", e => { if (e.target === joinModal) joinModal.classList.remove("open"); });
+    document.querySelector("#showJoinBtn").addEventListener("click", () => document.querySelector("#joinModal").classList.add("open"));
+    document.querySelector("#modalJoinInput").addEventListener("input", e => e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10));
+    document.querySelector("#modalJoinInput").addEventListener("input", () => document.querySelector("#joinError").hidden = true);
+
+    function assistantReply(text) {
+      const q = text.toLowerCase();
+      if (/wheelie|stunt|trick/.test(q)) return "Hold E while moving above 18 km/h to lift the front wheel. Keep it up to build stunt points, then release E to set the front wheel down.";
+      if (/nitro|boost|shift/.test(q)) return "Hold Shift (or the N₂O touch button) to boost. Nitro drains while active and recharges when you let go.";
+      if (/free.?roam|roam|off.?road|explore/.test(q)) return "A and D turn the bike and steer its heading across the open desert. Hold W to ride forward, S to brake, E for a wheelie, and Shift for nitro.";
+      if (/words\.txt|normal ai|ai model|training data/.test(q)) return "The supplied words.txt has about 466,550 entries, but it is only a word list: it has no definitions, conversations, or reasoning examples, so it cannot power a general AI. This is a local, game-aware helper; a generative AI needs a real model or service.";
+      if (/steer|turn|control|drive|play|key/.test(q)) return "Use A and D (or ← and →) to steer. Hold W or ↑ to accelerate, and S or ↓ to brake. On a phone, use the on-screen arrows. Your speed is " + Math.round(speed) + " km/h right now.";
+      if (/how.*(do|am)|pace|fast|score|distance|doing/.test(q)) return "You’ve covered " + (traveled / 1000).toFixed(1) + " km at " + Math.round(speed) + " km/h. " + (speed > 110 ? "That’s a lively pace — keep your line smooth through the bends." : "Ease into the throttle to build speed. The road goes on forever, so find your rhythm.");
+      if (/ahead|road|place|where|terrain|region|biome/.test(q)) return "You’re riding through " + regions[regionIndex].name + ". The road and scenery generate as you ride, and the landscape shifts every few kilometers. Keep an eye out for rocks along the shoulder.";
+      if (/multiplayer|friend|room|code/.test(q)) return "Tap Multiplayer in the upper-left to make a room and share its 10-digit code. Your friend can enter that code to ride alongside you.";
+      if (/hello|hi|hey/.test(q)) return "Hey! Ready to ride. Ask me about your speed, the controls, the changing scenery, or inviting a friend.";
+      return "I’m your in-game riding companion. I can answer questions about controls, your current pace, the endless terrain, and multiplayer. What would you like to know?";
+    }
+    const messages = document.querySelector("#chatMessages");
+    function addMessage(text, kind) {
+      const el = document.createElement("div"); el.className = "message " + kind; el.textContent = text;
+      messages.appendChild(el); messages.scrollTop = messages.scrollHeight;
+    }
+    function sendChat(text) {
+      const clean = text.trim(); if (!clean) return;
+      addMessage(clean, "user"); document.querySelector("#chatInput").value = "";
+      setTimeout(() => addMessage(assistantReply(clean), "bot"), 280);
+    }
+    document.querySelector("#chatForm").addEventListener("submit", e => { e.preventDefault(); sendChat(document.querySelector("#chatInput").value); });
+    document.querySelectorAll(".suggestion").forEach(b => b.addEventListener("click", () => sendChat(b.textContent)));
+
+    function setMpStatus(text) { document.querySelector("#mpStatus").textContent = text; }
+    function setCode(code) {
+      document.querySelector("#roomCode").textContent = code;
+      document.querySelector("#codeCard").hidden = false;
+    }
+    function attachConnection(conn) {
+      currentPeer = conn; newRemoteMarker();
+      conn.on("open", () => {
+        setMpStatus("Connected! Your friend is riding with you. Keep the tab open to stay in the room.");
+        showToast("Rider connected");
+      });
+      conn.on("data", data => {
+        if (!data || !remoteMarker) return;
+        remoteState.x = THREE.MathUtils.clamp(Number(data.x) || 0, -110, 110);
+        remoteState.heading = Number(data.heading) || 0;
+        remoteState.wheelie = THREE.MathUtils.clamp(Number(data.wheelie) || 0, 0, .48);
+        remoteState.lean = THREE.MathUtils.clamp(Number(data.lean) || 0, -.25, .25);
+        remoteState.yaw = THREE.MathUtils.clamp(Number(data.yaw) || 0, -1.05, 1.05);
+        remoteState.speed = Number(data.speed) || 0;
+        remoteState.distance = Number(data.distance) || 0;
+        remoteState.nitro = Number(data.nitro) || 100;
+        remoteMarker.position.z = -7;
+      });
+      conn.on("close", () => { currentPeer = null; remoteMarker && (remoteMarker.visible = false); setMpStatus("Your friend left the room. You can keep riding or create a new room."); showToast("Rider disconnected"); });
+      conn.on("error", err => { setMpStatus("Connection issue: " + (err.message || "please try again.")); });
+    }
+    function makePeer() {
+      if (!window.Peer) throw new Error("The multiplayer connection library could not load. Check your internet connection.");
+      return new Peer(undefined, { debug: 1 });
+    }
+    document.querySelector("#hostBtn").addEventListener("click", () => {
+      try {
+        setMpStatus("Creating your private room…");
+        const hostCode = String(Math.floor(1000000000 + Math.random() * 9000000000));
+        peer = new Peer(hostCode, { debug: 1 });
+        peer.on("open", id => {
+          setCode(id); setMpStatus("Room is ready. Share this code with your friend to ride together.");
+          document.querySelector("#hostBtn").textContent = "Room ready";
+          document.querySelector("#hostBtn").disabled = true;
+        });
+        peer.on("connection", attachConnection);
+        peer.on("error", err => {
+          setMpStatus(err.type === "unavailable-id" ? "That room code was already taken. Try creating a new room." : "Could not create room: " + (err.message || err.type));
+        });
+      } catch (err) { setMpStatus(err.message || "Could not create a room."); }
+    });
+    function joinRoom(code) {
+      if (!/^\d{10}$/.test(code)) { setMpStatus("Please enter all 10 digits of the room code."); return false; }
+      try {
+        setMpStatus("Connecting to room " + code + "…");
+        if (peer) peer.destroy();
+        peer = makePeer();
+        peer.on("open", () => {
+          const conn = peer.connect(code, { reliable: true });
+          attachConnection(conn);
+          const timeout = setTimeout(() => {
+            if (!conn.open) setMpStatus("No rider answered. Check the code and make sure your friend’s room is still open.");
+          }, 12000);
+          conn.on("open", () => clearTimeout(timeout));
+        });
+        peer.on("error", err => setMpStatus("Could not join room: " + (err.message || err.type) + ". Check the code and try again."));
+        return true;
+      } catch (err) { setMpStatus(err.message || "Could not join this room."); return false; }
+    }
+    document.querySelector("#modalJoinForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const code = document.querySelector("#modalJoinInput").value;
+      if (joinRoom(code)) document.querySelector("#joinModal").classList.remove("open");
+      else if (!/^\d{10}$/.test(code)) document.querySelector("#joinError").hidden = false;
+    });
+    document.querySelector("#copyCode").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(document.querySelector("#roomCode").textContent); showToast("Room code copied"); }
+      catch { showToast("Select and copy the room code"); }
+    });
+    document.querySelector("#mpFoot").textContent = "10-digit room codes connect riders peer-to-peer. Both browsers need internet access.";
+    document.addEventListener("keydown", e => { if (e.key === "Escape") { closePanels(); document.querySelector("#joinModal").classList.remove("open"); } });
+  </script>
+</body>
+</html>
